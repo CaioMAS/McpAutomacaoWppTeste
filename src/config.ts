@@ -2,7 +2,7 @@ import "dotenv/config";
 
 export const BASE =
   process.env.MEETINGS_BASE?.replace(/\/+$/, "") ??
-  "http://91.108.125.81:5555/api/meetings";
+  "http://91.108.125.81:5556/api/meetings";
 
 export const PORT = Number(process.env.MCP_PORT ?? 4000);
 export const PATH = process.env.MCP_PATH ?? "/mcp";
