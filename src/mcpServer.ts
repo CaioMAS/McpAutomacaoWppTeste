@@ -192,5 +192,27 @@ server.registerTool(
     }
   );
 
+  server.registerTool(
+    "check",
+    {
+      title: "Verificar status do backend",
+      description: "Realiza uma requisição GET no endpoint /check para confirmar se o sistema está online.",
+      inputSchema: {}, // sem parâmetros
+    },
+    async () => {
+      console.log("[MCP] check iniciado...");
+      try {
+        const resp = await http(`${BASE}/check`, { method: "GET" });
+        console.log("[MCP] check resp:", resp);
+        return { content: [{ type: "text", text: JSON.stringify(resp) }] };
+      } catch (e: any) {
+        console.error("[MCP] check erro:", e?.message, e?.response?.data);
+        return { content: [{ type: "text", text: `❌ ${e?.message ?? "Erro ao verificar backend."}` }] };
+      }
+    }
+  );
+
   return server;
+
+  
 }
