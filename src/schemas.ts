@@ -15,7 +15,7 @@ export const AgendarSchema = z.object({
     .string()
     .regex(/^\+?\d{10,15}$/, "clienteNumero E.164 (ex: 5531987654321)"),
   dataHora: DateTimeISO, // 🔴 só aceita ISO com offset explícito
-  chefeNome: z.string().default("Ezequias"),
+  chefeNome: z.string(),
   turma_nome: z.string().min(1, "turma_nome obrigatório"),
   cidadeOpcional: z.string().optional(),
   empresaNome: z.string().optional(),
