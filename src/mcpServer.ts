@@ -49,14 +49,9 @@ export function makeMeetingsMcpServer() {
       description: "Cria uma nova reunião",
       inputSchema: AgendarSchema.shape,
     },
-    // 1. ADICIONA O 'context'
-    async (args: AgendarInput, context: any) => {
+    async (args: AgendarInput) => {
       console.log("[MCP] agendar input:", args);
       try {
-        // 2. EXTRAI O TOKEN DO CONTEXT
-        const token = context?.headers?.["authorization"];
-        if (!token) throw new Error("Token não recebido pelo MCP Server.");
-
         const clienteNumero = normalizePhone(args.clienteNumero);
 
         // Normaliza p/ ISO com offset e valida futuro
@@ -66,10 +61,7 @@ export function makeMeetingsMcpServer() {
         const body = JSON.stringify({ ...args, clienteNumero, dataHora: dataHoraISO });
         const resp = await http(`${BASE}`, {
           method: "POST",
-          headers: { 
-            "Content-Type": "application/json",
-            "Authorization": token // 3. REPASSA O TOKEN
-          },
+          headers: { "Content-Type": "application/json" },
           body,
         });
 
@@ -90,20 +82,11 @@ export function makeMeetingsMcpServer() {
       description: "Lista reuniões de um dia (YYYY-MM-DD ou ISO com offset)",
       inputSchema: BuscarPorDataSchema.shape,
     },
-    // 1. ADICIONA O 'context'
-    async (args: BuscarPorDataInput, context: any) => {
+    async (args: BuscarPorDataInput) => {
       console.log("[MCP] buscarPorData input:", args);
       try {
-        // 2. EXTRAI O TOKEN DO CONTEXT
-        const token = context?.headers?.["authorization"];
-        if (!token) throw new Error("Token não recebido pelo MCP Server.");
-        
         const day = toDayParam(args.day);
-        const resp = await http(`${BASE}/?day=${encodeURIComponent(day)}`, { 
-          method: "GET",
-          headers: { "Authorization": token } // 3. REPASSA O TOKEN
-        });
-
+        const resp = await http(`${BASE}/?day=${encodeURIComponent(day)}`, { method: "GET" });
         console.log("[MCP] buscarPorData resp:", resp);
         return { content: [{ type: "text", text: JSON.stringify(resp) }] };
       } catch (e: any) {
@@ -115,56 +98,48 @@ export function makeMeetingsMcpServer() {
 
 
   // Buscar por período
-  server.registerTool(
-    "buscarPorPeriodo",
-    {
-      title: "Buscar por período",
-      description: "Lista reuniões entre start e end (ISO completo com offset)",
-      inputSchema: BuscarPorPeriodoSchema.shape,
-    },
-    // 1. ADICIONA O 'context'
-    async (args: BuscarPorPeriodoInput, context: any) => {
-      console.log("[MCP] buscarPorPeriodo input:", args);
+server.registerTool(
+  "buscarPorPeriodo",
+   {
+    title: "Buscar por período",
+    description: "Lista reuniões entre start e end (ISO completo com offset)",
+    inputSchema: BuscarPorPeriodoSchema.shape,
+  },
+  async (args: BuscarPorPeriodoInput) => {
+    console.log("[MCP] buscarPorPeriodo input:", args);
 
-      // helper local...
-      const expandIfDateOnly = (raw: string, which: "start" | "end") => {
-        const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
-        if (dateOnly) {
-          const suffix = which === "start" ? "T00:00:00-03:00" : "T23:59:59-03:00";
-          return `${raw}${suffix}`;
-        }
-        return raw; // já veio ISO; mantém
-      };
-
-      try {
-        // 2. EXTRAI O TOKEN DO CONTEXT
-        const token = context?.headers?.["authorization"];
-        if (!token) throw new Error("Token não recebido pelo MCP Server.");
-
-        // 1) Expande (se vier YYYY-MM-DD) e normaliza p/ ISO com offset/segundos
-        const startISO = toBackendISODateTime(expandIfDateOnly(args.start, "start"));
-        const endISO   = toBackendISODateTime(expandIfDateOnly(args.end,   "end"));
-
-        // 2) Validação de ordem
-        if (new Date(startISO).getTime() > new Date(endISO).getTime()) {
-          throw new Error("Intervalo inválido: start > end.");
-        }
-
-        // 3) Chamada real
-        const url = `${BASE}/?start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`;
-        const resp = await http(url, { 
-          method: "GET",
-          headers: { "Authorization": token } // 3. REPASSA O TOKEN
-        });
-
-        console.log("[MCP] buscarPorPeriodo resp:", resp);
-        return { content: [{ type: "text", text: JSON.stringify(resp) }] };
-      } catch (e: any) {
-        console.error("[MCP] buscarPorPeriodo erro:", e?.message, e?.response?.data);
-        return { content: [{ type: "text", text: `❌ ${e?.message ?? "Erro ao buscar por período."}` }] };
+    // helper local: expande YYYY-MM-DD para limites do dia em -03:00
+    const expandIfDateOnly = (raw: string, which: "start" | "end") => {
+      const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(raw);
+      if (dateOnly) {
+        const suffix = which === "start" ? "T00:00:00-03:00" : "T23:59:59-03:00";
+        return `${raw}${suffix}`;
       }
+      return raw; // já veio ISO; mantém
+    };
+
+    try {
+      // 1) Expande (se vier YYYY-MM-DD) e normaliza p/ ISO com offset/segundos
+      const startISO = toBackendISODateTime(expandIfDateOnly(args.start, "start"));
+      const endISO   = toBackendISODateTime(expandIfDateOnly(args.end,   "end"));
+
+      // 2) Validação de ordem
+      if (new Date(startISO).getTime() > new Date(endISO).getTime()) {
+        throw new Error("Intervalo inválido: start > end.");
+      }
+
+      // 3) Chamada real
+      const url = `${BASE}/?start=${encodeURIComponent(startISO)}&end=${encodeURIComponent(endISO)}`;
+      const resp = await http(url, { method: "GET" });
+
+      console.log("[MCP] buscarPorPeriodo resp:", resp);
+      return { content: [{ type: "text", text: JSON.stringify(resp) }] };
+    } catch (e: any) {
+      console.error("[MCP] buscarPorPeriodo erro:", e?.message, e?.response?.data);
+      return { content: [{ type: "text", text: `❌ ${e?.message ?? "Erro ao buscar por período."}` }] };
     }
-  );
+  }
+);
 
   // Alterar data/hora
   server.registerTool(
@@ -174,24 +149,16 @@ export function makeMeetingsMcpServer() {
       description: "Altera data/hora de uma reunião existente",
       inputSchema: AlterarDataSchema.shape,
     },
-    // 1. ADICIONA O 'context'
-    async (args: AlterarDataInput, context: any) => {
+    async (args: AlterarDataInput) => {
       console.log("[MCP] alterarData input:", args);
       try {
-        // 2. EXTRAI O TOKEN DO CONTEXT
-        const token = context?.headers?.["authorization"];
-        if (!token) throw new Error("Token não recebido pelo MCP Server.");
-
         const novaISO = toBackendISODateTime(args.novaDataHora);
         ensureFutureISO(novaISO);
 
         const body = JSON.stringify({ novaDataHora: novaISO });
         const resp = await http(`${BASE}/${encodeURIComponent(args.id)}`, {
           method: "PATCH",
-          headers: { 
-            "Content-Type": "application/json",
-            "Authorization": token // 3. REPASSA O TOKEN
-          },
+          headers: { "Content-Type": "application/json" },
           body,
         });
 
@@ -212,19 +179,10 @@ export function makeMeetingsMcpServer() {
       description: "Remove uma reunião pelo ID",
       inputSchema: DeletarSchema.shape,
     },
-    // 1. ADICIONA O 'context'
-    async (args: DeletarInput, context: any) => {
+    async (args: DeletarInput) => {
       console.log("[MCP] deletar input:", args);
       try {
-        // 2. EXTRAI O TOKEN DO CONTEXT
-        const token = context?.headers?.["authorization"];
-        if (!token) throw new Error("Token não recebido pelo MCP Server.");
-        
-        const resp = await http(`${BASE}/${encodeURIComponent(args.id)}`, { 
-          method: "DELETE",
-          headers: { "Authorization": token } // 3. REPASSA O TOKEN
-        });
-
+        const resp = await http(`${BASE}/${encodeURIComponent(args.id)}`, { method: "DELETE" });
         console.log("[MCP] deletar resp:", resp);
         return { content: [{ type: "text", text: JSON.stringify(resp) }] };
       } catch (e: any) {
@@ -241,23 +199,10 @@ export function makeMeetingsMcpServer() {
       description: "Realiza uma requisição GET no endpoint /check para confirmar se o sistema está online.",
       inputSchema: {}, // sem parâmetros
     },
-    // 1. ADICIONA O 'context' (e 'args: any' como placeholder)
-    async (args: any, context: any) => {
+    async () => {
       console.log("[MCP] check iniciado...");
       try {
-        // 2. EXTRAI O TOKEN (opcional, pois /check pode ser pública)
-        const token = context?.headers?.["authorization"];
-        
-        const headers: Record<string, string> = {};
-        if (token) {
-          headers["Authorization"] = token; // 3. REPASSA SE EXISTIR
-        }
-
-        const resp = await http(`${BASE}/check`, { 
-          method: "GET",
-          headers: headers 
-        });
-        
+        const resp = await http(`${BASE}/check`, { method: "GET" });
         console.log("[MCP] check resp:", resp);
         return { content: [{ type: "text", text: JSON.stringify(resp) }] };
       } catch (e: any) {
@@ -268,4 +213,6 @@ export function makeMeetingsMcpServer() {
   );
 
   return server;
+
+  
 }

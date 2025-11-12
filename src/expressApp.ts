@@ -11,13 +11,11 @@ import { makeMeetingsMcpServer } from "./mcpServer";
 export function makeExpressApp() {
   const app = express();
 
-  // ✅ CORS atualizado para permitir Authorization
   app.use(cors({
     origin: "*",
     methods: ["GET", "POST", "DELETE", "OPTIONS"],
-    allowedHeaders: ["content-type", "mcp-session-id", "authorization"],
+    allowedHeaders: ["content-type", "mcp-session-id"],
   }));
-
   app.use(express.json({ limit: "1mb" }));
 
   // Armazena transports por sessão
